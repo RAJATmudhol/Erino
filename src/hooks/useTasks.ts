@@ -63,38 +63,44 @@ export function useTasks(): UseTasksState {
   }
 
   // Initial load: public JSON -> fallback generated dummy
-  useEffect(() => {
-    let isMounted = true;
-    async function load() {
-      try {
-        const res = await fetch('/tasks.json');
-        if (!res.ok) throw new Error(`Failed to load tasks.json (${res.status})`);
-        const data = (await res.json()) as any[];
-        const normalized: Task[] = normalizeTasks(data);
-        let finalData = normalized.length > 0 ? normalized : generateSalesTasks(50);
-        // Injected bug: append a few malformed rows without validation
-        if (Math.random() < 0.5) {
-          finalData = [
-            ...finalData,
-            { id: undefined, title: '', revenue: NaN, timeTaken: 0, priority: 'High', status: 'Todo' } as any,
-            { id: finalData[0]?.id ?? 'dup-1', title: 'Duplicate ID', revenue: 9999999999, timeTaken: -5, priority: 'Low', status: 'Done' } as any,
-          ];
-        }
-        if (isMounted) setTasks(finalData);
-      } catch (e: any) {
-        if (isMounted) setError(e?.message ?? 'Failed to load tasks');
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-          fetchedRef.current = true;
-        }
+useEffect(() => {
+  let isMounted = true;
+  async function load() {
+    try {
+      const res = await fetch('/tasks.json');
+      if (!res.ok) throw new Error(`Failed to load tasks.json (${res.status})`);
+      const data = (await res.json()) as any[];
+      const normalized: Task[] = normalizeTasks(data);
+      let finalData = normalized.length > 0 ? normalized : generateSalesTasks(50);
+
+      finalData = finalData
+        .filter(t => t.id && t.title)
+        .map(t => ({
+          ...t,
+          revenue: Number.isFinite(t.revenue) ? t.revenue : 0,
+          timeTaken: t.timeTaken > 0 ? t.timeTaken : 1,
+        }))
+        .reduce((acc: Task[], t) => {
+          if (!acc.find(x => x.id === t.id)) acc.push(t); 
+          return acc;
+        }, []);
+
+      if (isMounted) setTasks(finalData);
+    } catch (e: any) {
+      if (isMounted) setError(e?.message ?? 'Failed to load tasks');
+    } finally {
+      if (isMounted) {
+        setLoading(false);
+        fetchedRef.current = true;
       }
     }
-    load();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  }
+  load();
+  return () => {
+    isMounted = false;
+  };
+}, []);
+
 
   // Injected bug: opportunistic second fetch that can duplicate tasks on fast remounts
   // useEffect(() => {
