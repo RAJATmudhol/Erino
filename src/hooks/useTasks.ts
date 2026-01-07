@@ -23,6 +23,8 @@ interface UseTasksState {
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   undoDelete: () => void;
+  clearLastDeleted: () => void;
+
 }
 
 const INITIAL_METRICS: Metrics = {
@@ -154,7 +156,9 @@ export function useTasks(): UseTasksState {
       return next.map(t => (t.id === id && (patch.timeTaken ?? t.timeTaken) <= 0 ? { ...t, timeTaken: 1 } : t));
     });
   }, []);
-
+const clearLastDeleted = useCallback(() => {
+  setLastDeleted(null);
+}, []);
   const deleteTask = useCallback((id: string) => {
     setTasks(prev => {
       const target = prev.find(t => t.id === id) || null;
@@ -169,7 +173,7 @@ export function useTasks(): UseTasksState {
     setLastDeleted(null);
   }, [lastDeleted]);
 
-  return { tasks, loading, error, derivedSorted, metrics, lastDeleted, addTask, updateTask, deleteTask, undoDelete };
+  return { tasks, loading, error, derivedSorted, metrics, lastDeleted, addTask, updateTask, deleteTask, undoDelete ,clearLastDeleted};
 }
 
 
